@@ -4,6 +4,7 @@ package goxash3d_fwgs
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <unistd.h>
@@ -12,6 +13,11 @@ package goxash3d_fwgs
 // set_errno is a helper to explicitly set errno from Go.
 static void set_errno(int err) {
 	errno = err;
+}
+
+// c_select is a wrapper for select() since "select" is a Go keyword.
+static int c_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout) {
+	return select(nfds, readfds, writefds, exceptfds, timeout);
 }
 */
 import "C"
@@ -366,4 +372,11 @@ func lib_net_getaddrinfo(hostname, service *C.char, hints, result unsafe.Pointer
 
 	*(*unsafe.Pointer)(result) = unsafe.Pointer(aiStruct)
 	return C.int(0)
+}
+
+// lib_net_select wraps select() for monitoring multiple file descriptors.
+//
+//export lib_net_select
+func lib_net_select(nfds C.int, readfds, writefds, exceptfds *C.fd_set, timeout *C.struct_timeval) C.int {
+	return C.c_select(nfds, readfds, writefds, exceptfds, timeout)
 }
