@@ -1,7 +1,7 @@
 package goxash3d_fwgs
 
 /*
-#cgo LDFLAGS: -L. -lxash -lpublic -lbuild_vcs -lm -lbacktrace
+#cgo LDFLAGS: -L. -lxash -lpublic -lbuild_vcs -lm -lbacktrace -llibrary_suffix
 #include "xash.h"
 #include <stdlib.h>
 
