@@ -8,30 +8,35 @@ WORKDIR /xash
 
 COPY ./xash3d-fwgs .
 
-RUN git submodule update --init --recursive
-
 RUN ./waf configure -T release -8 -d --enable-openmp \
     && ./waf build
 
 FROM golang:1.25.1 AS go
 
 WORKDIR /go
-COPY pkg pkg
-COPY --from=engine /xash/build/engine/libxash.a pkg/libxash.a
-COPY --from=engine /xash/build/public/libbuild_vcs.a pkg/libbuild_vcs.a
-COPY --from=engine /xash/build/public/libpublic.a pkg/libpublic.a
-COPY --from=engine /xash/build/3rdparty/libbacktrace/libbacktrace.a pkg/libbacktrace.a
 
-COPY go.mod go.mod
-COPY go.sum go.sum
-COPY go.work go.work
-COPY examples examples
+# cria pasta pkg
+RUN mkdir -p /go/pkg
+
+# copia todas as libs estáticas do build do xash
+COPY --from=engine /xash/build/ /tmp/xash-build/
+
+# move TODAS as .a para /go/pkg
+RUN find /tmp/xash-build -name "*.a" -exec cp {} /go/pkg/ \;
+
+# copia código go
+COPY go.mod .
+COPY go.sum .
+COPY go.work .
+COPY examples ./examples
+COPY pkg ./pkg
 
 WORKDIR /go/examples/webrtc-hl
 
 ENV CGO_CFLAGS="-fopenmp"
-ENV CGO_LDFLAGS="-fopenmp"
-RUN go mod download && go build .
+ENV CGO_LDFLAGS="-L/go/pkg -fopenmp"
+
+RUN go mod download && go build -o webrtc-hl .
 
 
 FROM debian:trixie-slim AS hlds
@@ -99,13 +104,14 @@ WORKDIR /xashds
 ENV LD_LIBRARY_PATH=/xashds
 
 COPY --from=hlds /opt/xash/xashds .
-COPY --from=hlds /hlsdk-portable/build/dlls/hl_arm64.so dlls/hl_arm64.so
+COPY --from=hlds /hlsdk-portable/build/dlls/hl_amd64.so dlls/hl_amd64.so
 COPY --from=go /go/examples/webrtc-hl/webrtc-hl ./xash
 COPY --from=engine /xash/build/filesystem/filesystem_stdio.so ./filesystem_stdio.so
 EXPOSE 27015/udp
+EXPOSE 27016/tcp
 
 # Start server
-ENTRYPOINT ["./xash", "+ip", "0.0.0.0", "-port", "27015"]
+ENTRYPOINT ["./xash", "-port", "27015", "+ip", "0.0.0.0"]
 
 # Default start parameters
 CMD ["+map crossfire"]
