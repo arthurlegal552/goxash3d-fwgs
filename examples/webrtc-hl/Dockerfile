@@ -8,7 +8,9 @@ WORKDIR /xash
 
 COPY ./xash3d-fwgs .
 
-RUN ./waf configure -T release -8 -d --enable-lto --enable-openmp \
+RUN git submodule update --init --recursive
+
+RUN ./waf configure -T release -8 -d --enable-openmp \
     && ./waf build
 
 FROM golang:1.25.1 AS go
